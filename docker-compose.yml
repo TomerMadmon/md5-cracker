@@ -1,0 +1,117 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: md5db
+      POSTGRES_USER: md5
+      POSTGRES_PASSWORD: md5pass
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/ddl:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U md5 -d md5db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+
+  data-loader:
+    build:
+      context: ./db/load
+      dockerfile: Dockerfile
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      DB_PASSWORD: md5pass
+    volumes:
+      - ./db/load/precomp_data:/app/precomp_data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    command: ["--container", "postgres", "--db-name", "md5db", "--db-user", "md5", "--out-dir", "/app/precomp_data", "--parallel", "10", "--clear-table"]
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: md5
+      RABBITMQ_DEFAULT_PASS: md5pass
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  master:
+    build:
+      context: ./master
+      dockerfile: Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/md5db
+      SPRING_DATASOURCE_USERNAME: md5
+      SPRING_DATASOURCE_PASSWORD: md5pass
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: md5
+      SPRING_RABBITMQ_PASSWORD: md5pass
+      SPRING_PROFILES_ACTIVE: master
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  minion:
+    build:
+      context: ./minion
+      dockerfile: Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/md5db
+      SPRING_DATASOURCE_USERNAME: md5
+      SPRING_DATASOURCE_PASSWORD: md5pass
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: md5
+      SPRING_RABBITMQ_PASSWORD: md5pass
+      SPRING_PROFILES_ACTIVE: minion
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    ports:
+      - "4200:80"
+    depends_on:
+      - master
+
+volumes:
+  pgdata:
+

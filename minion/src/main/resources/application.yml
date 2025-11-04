@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: md5-cracker-minion
+  profiles:
+    active: minion
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/md5db}
+    username: ${SPRING_DATASOURCE_USERNAME:md5}
+    password: ${SPRING_DATASOURCE_PASSWORD:md5pass}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:md5}
+    password: ${SPRING_RABBITMQ_PASSWORD:md5pass}
+    listener:
+      simple:
+        prefetch: 10
+        concurrency: 4
+        max-concurrency: 8
+  jdbc:
+    template:
+      query-timeout: 30
+
+server:
+  port: 8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+
+logging:
+  level:
+    com.md5cracker: INFO
+    org.springframework.amqp: INFO
+
