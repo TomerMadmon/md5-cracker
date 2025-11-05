@@ -4,7 +4,6 @@ import { Router } from '@angular/router';
 import { ApiService } from '../api.service';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
@@ -14,7 +13,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
     CommonModule,
     MatTableModule,
     MatButtonModule,
-    MatIconModule,
     MatProgressSpinnerModule
   ],
   template: `
@@ -42,9 +40,16 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
       <div *ngIf="error" class="error">{{ error }}</div>
 
-      <div class="jobs-table-container" *ngIf="completedJobs.length > 0">
+      <div class="jobs-table-container">
         <h3>Completed Jobs</h3>
-        <table mat-table [dataSource]="completedJobs" class="mat-elevation-z8">
+        <div *ngIf="loadingJobs" class="loading">
+          <mat-spinner diameter="40"></mat-spinner>
+          <span>Loading completed jobs...</span>
+        </div>
+        <div *ngIf="!loadingJobs && completedJobs.length === 0" class="no-jobs">
+          <p>No completed jobs yet. Upload a file to start a new job.</p>
+        </div>
+        <table *ngIf="!loadingJobs && completedJobs.length > 0" mat-table [dataSource]="completedJobs" class="mat-elevation-z8">
           <ng-container matColumnDef="jobId">
             <th mat-header-cell *matHeaderCellDef>Job ID</th>
             <td mat-cell *matCellDef="let job">{{ formatJobId(job.jobId) }}</td>
@@ -66,13 +71,13 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
           </ng-container>
 
           <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef>Actions</th>
-            <td mat-cell *matCellDef="let job">
-              <button mat-icon-button color="primary" (click)="viewJob(job.jobId)" title="View Job">
-                <mat-icon>visibility</mat-icon>
+            <th mat-header-cell *matHeaderCellDef class="actions-header">Actions</th>
+            <td mat-cell *matCellDef="let job" class="actions-cell">
+              <button mat-raised-button color="primary" (click)="viewJob(job.jobId)" class="action-btn">
+                View
               </button>
-              <button mat-icon-button color="accent" (click)="downloadResults(job.jobId)" title="Download Results">
-                <mat-icon>download</mat-icon>
+              <button mat-raised-button color="accent" (click)="downloadResults(job.jobId)" class="action-btn">
+                Download
               </button>
             </td>
           </ng-container>
@@ -82,10 +87,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
         </table>
       </div>
 
-      <div *ngIf="loadingJobs" class="loading">
-        <mat-spinner diameter="40"></mat-spinner>
-        <span>Loading completed jobs...</span>
-      </div>
     </div>
   `,
   styles: [`
@@ -161,8 +162,33 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
       margin-top: 20px;
       justify-content: center;
     }
-    button.mat-icon-button {
-      margin: 0 4px;
+    .no-jobs {
+      padding: 20px;
+      text-align: center;
+      color: #666;
+      background: white;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    .actions-header {
+      min-width: 200px;
+      width: 200px;
+    }
+    .actions-cell {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+      min-width: 200px;
+      width: 200px;
+      padding: 12px 20px;
+      box-sizing: border-box;
+    }
+    button.action-btn {
+      margin: 0;
+      padding: 8px 16px;
+      min-width: 80px;
+      font-size: 14px;
     }
   `]
 })
@@ -184,12 +210,18 @@ export class UploadComponent implements OnInit {
     this.loadingJobs = true;
     this.api.getJobs().subscribe({
       next: (jobs: any[]) => {
-        this.completedJobs = jobs;
+        console.log('Loaded jobs:', jobs);
+        this.completedJobs = jobs || [];
         this.loadingJobs = false;
+        if (jobs && jobs.length > 0) {
+          console.log('Found', jobs.length, 'completed jobs');
+        }
       },
       error: (err) => {
         console.error('Failed to load jobs:', err);
+        this.error = 'Failed to load completed jobs. Please refresh the page.';
         this.loadingJobs = false;
+        this.completedJobs = [];
       }
     });
   }

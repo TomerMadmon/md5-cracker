@@ -40,7 +40,7 @@ services:
       postgres:
         condition: service_healthy
     restart: "no"
-    command: ["--container", "postgres", "--db-name", "md5db", "--db-user", "md5", "--out-dir", "/app/precomp_data", "--parallel", "10", "--clear-table"]
+    command: ["--container", "postgres", "--db-name", "md5db", "--db-user", "md5", "--out-dir", "/app/precomp_data", "--parallel", "10", "--max-workers", "4", "--clear-table"]
 
   rabbitmq:
     image: rabbitmq:3-management
